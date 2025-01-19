@@ -1,7 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Sidebar from "./Sidebar";
 import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useDispatch, useSelector } from 'react-redux';
+import {setBudgetGive, clear, addElement} from '../store/Budget';
+
 import {
   faGoogle,
   faFacebookF,
@@ -19,7 +22,7 @@ import {
 import { faSearch, faAd } from "@fortawesome/free-solid-svg-icons";
 
 function AdGeneration() {
-  const platforms = [
+  const platforms = useMemo(() => [
     { name: "Google Ads", icon: faGoogle },
     { name: "Facebook", icon: faFacebookF },
     { name: "Instagram", icon: faInstagram },
@@ -34,35 +37,80 @@ function AdGeneration() {
     { name: "Bing Ads", icon: faSearch },
     { name: "Amazon Ads", icon: faAmazon },
     { name: "AdRoll", icon: faAd },
-  ];
+  ], []); // Empty dependency array ensures this runs only once
 
-  const calculateBudgetDistribution = (method) => {
-    if (method === "equal") {
-      const equalShare = (100 / platforms.length).toFixed(2);
-      return platforms.map((platform) => ({
-        website: platform.name,
-        budget: parseFloat(equalShare),
-      }));
-    } else {
-      const hardcodedTrends = [
-        15, 10, 12, 8, 10, 5, 10, 5, 5, 8, 4, 4, 2, 1,
-      ]; // Random values summing to 100
-      return platforms.map((platform, index) => ({
-        website: platform.name,
-        budget: hardcodedTrends[index] || 0,
-      }));
-    }
-  };
-
+  const dispatch = useDispatch();
+  const prodDesc = useSelector((state) => state.infor.prodDesc);
+  // const [analysisResult, setAnalysisResult] = useState(null);
+  const [budgetDistribution, setBudgetDistribution] = useState([]);
   const [allocationMethod, setAllocationMethod] = useState("equal");
-  const [budgetDistribution, setBudgetDistribution] = useState(
-    calculateBudgetDistribution("equal")
-  );
+  const [recommendations, setRecommendations] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleAllocationChange = (method) => {
-    setAllocationMethod(method);
-    setBudgetDistribution(calculateBudgetDistribution(method));
+  // Fetch analysis from Flask API
+  useEffect(() => {
+    if (allocationMethod === "trends") {
+      fetchAdRecommendations();
+    }
+  }, [allocationMethod]);
+
+  // Calculate budget distribution based on selected method
+  useEffect(() => {
+    if (allocationMethod === "equal") {
+        const equalShare = (100 / platforms.length).toFixed(2);
+        const newEqualDistribution = platforms.map(platform => ({
+            website: platform.name,
+            budget: parseFloat(equalShare),
+        }));
+        setBudgetDistribution(newEqualDistribution);
+        console.log(newEqualDistribution)
+        dispatch(clear());
+        newEqualDistribution.forEach(item => {
+          dispatch(addElement(item));
+      });
+        // dispatch(setBudgetGive(newEqualDistribution)); 
+    } else if (allocationMethod === "trends") {
+        const newTrendDistribution = recommendations.map(item => ({
+            website: item.ad_platform,
+            budget: item.percentage,
+        }));
+        setBudgetDistribution(newTrendDistribution);
+        console.log(newTrendDistribution);
+        dispatch(clear());
+        newTrendDistribution.forEach(item => {
+          dispatch(addElement(item));
+      });
+        // dispatch(setBudgetGive(newTrendDistribution)); 
+    }
+}, [dispatch, allocationMethod, recommendations, platforms]);
+
+
+  // Function to call the Flask backend
+  const fetchAdRecommendations = () => {
+    setLoading(true);
+    setError(null);
+
+    // const res = temp.substring(0, 50)
+
+    // const encodedDescription = encodeURIComponent(prodDesc);
+    const url = `http://127.0.0.1:5003/generate_ad_recommendations?product_description=${prodDesc}`;
+
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        console.log('Success:', data);
+        setRecommendations(data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error('Error:', error);
+        setError('Failed to fetch data');
+        setLoading(false);
+      });
   };
+
+  console.log(recommendations);
 
   return (
     <div className="flex min-h-screen">
@@ -76,9 +124,10 @@ function AdGeneration() {
             Ad Platform Budget Allocation
           </h1>
           <p className="text-lg text-textSecondary text-center mb-8">
-            Your ad will be displayed across these platforms. Choose how you
-            want to allocate your budget.
+            Choose how you want to allocate your ad budget across platforms.
           </p>
+
+          {/* Allocation Method Buttons */}
           <div className="flex justify-center gap-6 mb-8">
             <button
               className={`px-6 py-3 rounded-full font-medium text-lg transition-transform ${
@@ -86,7 +135,7 @@ function AdGeneration() {
                   ? "bg-secondary text-white shadow-md scale-105"
                   : "bg-gray-300 text-gray-700 hover:bg-gray-400 hover:scale-105"
               }`}
-              onClick={() => handleAllocationChange("equal")}
+              onClick={() => setAllocationMethod("equal")}
             >
               Allocate Equally
             </button>
@@ -96,42 +145,36 @@ function AdGeneration() {
                   ? "bg-secondary text-white shadow-md scale-105"
                   : "bg-gray-300 text-gray-700 hover:bg-gray-400 hover:scale-105"
               }`}
-              onClick={() => handleAllocationChange("trends")}
+              onClick={() => setAllocationMethod("trends")}
             >
               Allocate by Trends
             </button>
           </div>
-          <ul className="divide-y divide-border bg-gray-50 rounded-lg shadow-inner">
-            {budgetDistribution.map((item, index) => {
-              const platform = platforms.find((p) => p.name === item.website);
 
-              return (
-                <li
-                  key={index}
-                  className="flex justify-between items-center py-4 px-6 hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    {platform?.icon ? (
-                      <FontAwesomeIcon
-                        icon={platform.icon}
-                        className="text-primary text-xl"
-                      />
-                    ) : (
-                      <span className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-xs text-gray-700">
-                        N/A
-                      </span>
-                    )}
-                    <span className="text-lg font-medium text-textPrimary">
-                      {item.website}
-                    </span>
-                  </div>
-                  <span className="text-lg font-semibold text-secondary">
-                    {item.budget}%
+          {/* Budget Distribution List */}
+          <ul className="divide-y divide-border bg-gray-50 rounded-lg shadow-inner">
+            {budgetDistribution.map((item, index) => (
+              <li
+                key={index}
+                className="flex justify-between items-center py-4 px-6 hover:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <FontAwesomeIcon
+                    icon={platforms.find(p => p.name === item.website).icon}
+                    className="text-primary text-xl"
+                  />
+                  <span className="text-lg font-medium text-textPrimary">
+                    {item.website}
                   </span>
-                </li>
-              );
-            })}
+                </div>
+                <span className="text-lg font-semibold text-secondary">
+                  {item.budget}%
+                </span>
+              </li>
+            ))}
           </ul>
+
+          {/* Navigation Buttons */}
           <div className="mt-8 flex justify-center">
             <Link to="/">
               <button className="bg-gray-300 text-gray-700 px-6 py-3 mr-8 rounded-full font-medium text-lg hover:bg-gray-400 transition-transform">

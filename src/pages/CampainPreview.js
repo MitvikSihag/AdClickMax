@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import Sidebar from "./Sidebar";
 import { Link } from "react-router-dom";
+import { useDispatch, useSelector } from 'react-redux';
+import { setBusinessName, setIndustry, setPosterImage } from '../store/Infor';
 
 function LaunchCampaign() {
   const [totalBudget, setTotalBudget] = useState("");
@@ -10,19 +12,24 @@ function LaunchCampaign() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [loading, setLoading] = useState(false); // State for the loader
 
-  const platforms = [
-    { name: "Google Ads", percentage: 30 },
-    { name: "Facebook", percentage: 25 },
-    { name: "Instagram", percentage: 20 },
-    { name: "Twitter", percentage: 15 },
-    { name: "LinkedIn", percentage: 10 },
-  ];
+  const { posterImage } = useSelector((state) => state.infor);
+  const budgetGive = useSelector((state) => state.promotions.budgetGive);
+
+  console.log(budgetGive);
+
+  // const platforms = [
+  //   { name: "Google Ads", percentage: 30 },
+  //   { name: "Facebook", percentage: 25 },
+  //   { name: "Instagram", percentage: 20 },
+  //   { name: "Twitter", percentage: 15 },
+  //   { name: "LinkedIn", percentage: 10 },
+  // ];
 
   const calculateAllocatedBudget = () => {
     if (!totalBudget || isNaN(totalBudget)) return [];
-    return platforms.map((platform) => ({
-      name: platform.name,
-      allocated: ((platform.percentage / 100) * parseFloat(totalBudget)).toFixed(2),
+    return budgetGive.map((platform) => ({
+      name: platform.website,
+      allocated: ((platform.budget / 100) * parseFloat(totalBudget)).toFixed(2),
     }));
   };
 
@@ -164,6 +171,19 @@ function LaunchCampaign() {
           )}
         </div>
       </div>
+        {/* {posterImage && (
+    <div className="mt-8 text-center">
+      <h2 className="text-lg font-semibold text-gray-700 mb-2">Poster Preview:</h2>
+      <img
+        src={posterImage}
+        alt="Poster"
+        className="max-w-full h-auto rounded-lg shadow-md"
+      />
+    </div>
+  )} */}
+
+  {/* {console.log(posterImage)} */}
+
     </div>
   );
 }

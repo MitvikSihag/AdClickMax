@@ -1,34 +1,143 @@
 import React, { useState } from "react";
 import Sidebar from "./Sidebar"; 
 import { Link } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { setBusinessName, setIndustry, setPosterImage, setProdDesc } from '../store/Infor';
 
 function HomePage() {
   const [showAiPopup, setShowAiPopup] = useState(false);
   const [productImage, setProductImage] = useState(null);
-  const [companyLogo, setCompanyLogo] = useState(null);
-  const [promptText, setPromptText] = useState("");
-  const [businessName, setBusinessName] = useState("");
-  const [industry, setIndustry] = useState("");
+  // const [businessName, setBusinessName] = useState("");
+  // const [industry, setIndustry] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState(null);
+  // const { posterImage } = useSelector((state) => state.infor);
+  const businessName = useSelector((state) => state.infor.businessName);
+  const industry = useSelector((state) => state.infor.industry);
+  const dispatch = useDispatch();
 
-  const handleUploadAd = (event) => {
+  const handleUploadAd = async (event) => {
     const file = event.target.files[0];
     if (file) {
+      // Create a URL for the uploaded file to preview or use it later
+      const imageUrl = URL.createObjectURL(file);
+  
+      // Dispatch the uploaded image URL to Redux
+      dispatch(setPosterImage(imageUrl));
+  
+      // Optional: Show an alert or console log for debugging
       alert(`Uploaded file: ${file.name}`);
+      console.log(`Poster image URL: ${imageUrl}`);
+  
+      // Send the file to the Flask endpoint
+      const formData = new FormData();
+      formData.append("image", file);
+  
+      try {
+        const response = await fetch("http://127.0.0.1:5001/give_product_description", {
+          method: "POST",
+          body: formData,
+        });
+  
+        if (response.ok) {
+          const productDescription = await response.text();
+          console.log("Product Description:", productDescription);
+  
+          // Optionally store the product description in Redux or state
+          dispatch(setProdDesc(productDescription)); // Add this action in Redux
+        } else {
+          alert("Failed to get product description. Please try again.");
+          console.error("Error response:", await response.json());
+        }
+      } catch (error) {
+        alert("An error occurred while uploading the image.");
+        console.error("Error:", error);
+      }
     }
   };
+  
 
-  const handleAiPopupSubmit = () => {
-    if (!productImage || !companyLogo || !promptText) {
-      alert("Please provide all required inputs before submitting.");
+  const handleAiPopupSubmit = async () => {
+    if (!productImage) {
+      alert("Please upload a product image before submitting.");
       return;
     }
-    alert("Submitted to AI for processing!");
-    setShowAiPopup(false);
-    setProductImage(null);
-    setCompanyLogo(null);
-    setPromptText("");
+  
+    setIsLoading(true);
+  
+    const formData = new FormData();
+    formData.append("image", productImage);
+  
+    try {
+      // Step 1: Call API to get Product Description
+      const descriptionResponse = await fetch(
+        "http://127.0.0.1:5001/give_product_description",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+  
+      if (descriptionResponse.ok) {
+        const productDescription = await descriptionResponse.text();
+        console.log("Product Description:", productDescription);
+  
+        // Store the product description in Redux or state
+        dispatch(setProdDesc(productDescription));
+  
+        // Step 2: Call API to generate the Poster
+        const posterResponse = await fetch(
+          "http://127.0.0.1:5000/generate_ad_image",
+          {
+            method: "POST",
+            headers: {
+              "Accept": "application/json",
+            },
+            body: formData,
+          }
+        );
+  
+        if (posterResponse.ok) {
+          const data = await posterResponse.blob(); // Parse the poster image as a blob
+          const imageUrl = URL.createObjectURL(data); // Create a local URL for the blob
+  
+          console.log("Generated Image URL:", imageUrl);
+  
+          // Store the generated poster in Redux or state
+          setGeneratedImageUrl(imageUrl);
+          dispatch(setPosterImage(imageUrl));
+  
+          alert("AI-generated ad image and description are ready!");
+        } else {
+          alert("Failed to generate ad image. Please try again.");
+          const error = await posterResponse.json();
+          console.error("Error response:", error);
+        }
+      } else {
+        alert("Failed to get product description. Please try again.");
+        const error = await descriptionResponse.json();
+        console.error("Error response:", error);
+      }
+    } catch (error) {
+      alert("An error occurred while generating the ad image or description.");
+      console.error("Error:", error);
+    } finally {
+      setIsLoading(false);
+      setShowAiPopup(false);
+    }
   };
+  
+  
+  
 
+  const handleBusinessNameChange = (temp) => {
+    dispatch(setBusinessName(temp));
+  };
+  
+  const handleIndustryChange = (temp) => {
+    dispatch(setIndustry(temp));
+  };
+  
   const isProceedEnabled = businessName.trim() !== "" && industry.trim() !== "";
 
   return (
@@ -74,7 +183,7 @@ function HomePage() {
                 Generate Ad with AI
               </h2>
               <p className="text-gray-600 mb-6">
-                Upload your product image and company logo, and let our AI create a stunning ad for you.
+                Upload your product image, and let our AI create a stunning ad for you.
               </p>
               <button
                 className="bg-green-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-600 transition"
@@ -94,7 +203,7 @@ function HomePage() {
                 <input
                   type="text"
                   value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
+                  onChange={(e) => handleBusinessNameChange(e.target.value)}
                   placeholder="Enter your business name"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500"
                 />
@@ -103,7 +212,7 @@ function HomePage() {
                 <label className="block text-gray-700 font-medium mb-2">Industry</label>
                 <select
                   value={industry}
-                  onChange={(e) => setIndustry(e.target.value)}
+                  onChange={(e) => handleIndustryChange(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Select your industry</option>
@@ -116,18 +225,18 @@ function HomePage() {
               </div>
             </div>
             <div className="text-center mt-6">
-            <Link to="/adgnr">
-              <button
-                type="button"
-                disabled={!isProceedEnabled}
-                className={`px-6 py-2 rounded-lg font-bold text-lg ${
-                  isProceedEnabled
-                    ? "bg-gradient-to-r from-blue-500 to-green-500 text-white hover:shadow-xl hover:scale-105 transition-transform"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                }`}
-              >
-                Proceed
-              </button>
+              <Link to="/adgnr">
+                <button
+                  type="button"
+                  disabled={!isProceedEnabled}
+                  className={`px-6 py-2 rounded-lg font-bold text-lg ${
+                    isProceedEnabled
+                      ? "bg-gradient-to-r from-blue-500 to-green-500 text-white hover:shadow-xl hover:scale-105 transition-transform"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  }`}
+                >
+                  Proceed
+                </button>
               </Link>
             </div>
           </div>
@@ -141,7 +250,7 @@ function HomePage() {
             <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">
               Generate Ad with AI
             </h2>
-            {/* <div className="mb-4">
+            <div className="mb-4">
               <label className="block text-gray-600 mb-2">Upload Product Image</label>
               <input
                 type="file"
@@ -149,25 +258,6 @@ function HomePage() {
                 className="w-full border border-gray-300 rounded-lg p-2"
                 onChange={(e) => setProductImage(e.target.files[0])}
               />
-            </div>
-            <div className="mb-4">
-              <label className="block text-gray-600 mb-2">Upload Company Logo</label>
-              <input
-                type="file"
-                accept="image/*"
-                className="w-full border border-gray-300 rounded-lg p-2"
-                onChange={(e) => setCompanyLogo(e.target.files[0])}
-              />
-            </div> */}
-            <div className="mb-4">
-              <label className="block text-gray-600 mb-2">Enter AI Prompt</label>
-              <textarea
-                className="w-full border border-gray-300 rounded-lg p-2"
-                placeholder="Describe your ad requirements..."
-                rows="4"
-                value={promptText}
-                onChange={(e) => setPromptText(e.target.value)}
-              ></textarea>
             </div>
             <div className="flex justify-between">
               <button
@@ -179,8 +269,32 @@ function HomePage() {
               <button
                 className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
                 onClick={handleAiPopupSubmit}
+                disabled={isLoading}
               >
-                Submit
+                {isLoading ? "Generating..." : "Submit"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {generatedImageUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">
+              AI Generated Ad
+            </h2>
+            <img
+              src={generatedImageUrl}
+              alt="Generated Ad"
+              className="w-full rounded-lg"
+            />
+            <div className="flex justify-center mt-4">
+              <button
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+                onClick={() => setGeneratedImageUrl(null)}
+              >
+                Close
               </button>
             </div>
           </div>
