@@ -12,13 +12,13 @@ import PIL.Image
 # STEP 0: CONFIGURE YOUR GOOGLE GENERATIVE AI AND STABILITY KEYS
 ###############################################################################
 # Replace this with your own Google Generative AI key:
-genai.configure(api_key="AIzaSyCC6jbp4nx0oZ-Khbk0WXO6h1jJ3cRvhhI")
+genai.configure(api_key="enter-your-api-key")
 
 # Initialize the Gemini Flash 1.5 model
 gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
 # Replace this with your actual Stability API key:
-STABILITY_API_KEY = "sk-8aJYCOCKvAT6Vfw4dTM6SIq28HvxFh9SSET7VPu3CIrpLiUn"
+STABILITY_API_KEY = "Enter-your-api-key"
 
 app = Flask(__name__)
 CORS(app)
