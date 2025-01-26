@@ -13,8 +13,8 @@ CORS(app, resources={
 })
 
 # Hard-coded Gemini Flash 1.5 API key (avoid this in production)
-GEMINI_API_KEY = "AIzaSyAgI5dWlELKmcw1GWm18pAlm6qh368k4CI"
-genai.configure(api_key="AIzaSyAgI5dWlELKmcw1GWm18pAlm6qh368k4CI")
+GEMINI_API_KEY = "Enter Your Api Key"
+genai.configure(api_key="Enter Your Api Key")
 
 @app.route('/generate_ad_recommendations', methods=['GET'])
 def generate_ad_recommendations():
